@@ -21,7 +21,7 @@ function App() {
 // This function knows how to draw an 'X'.
 function drawX(ctx, row, col, lineSpacing) {
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 2;
     const x = col * lineSpacing;
     const y = row * lineSpacing;
     const padding = 20;
@@ -36,7 +36,7 @@ function drawX(ctx, row, col, lineSpacing) {
 // This function knows how to draw an 'O'.
 function drawO(ctx, row, col, lineSpacing) {
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 2;
     const centerX = col * lineSpacing + lineSpacing / 2;
     const centerY = row * lineSpacing + lineSpacing / 2;
     const radius = lineSpacing / 2 - 20;
@@ -125,8 +125,10 @@ async function drawCrossAnimated(canvas) {
 
   // Vertical line
   await animateLine(ctx, mid, 0, mid, size, 500);
+  await animateLine(ctx, mid*2, 0, mid*2, size, 500);
   // Horizontal line
   await animateLine(ctx, 0, mid, size, mid, 500);
+  await animateLine(ctx, 0, mid*2, size, mid*2, 500);
 }
   // #3 & #D: EFFECTS
   // The `useEffect` Hook lets us run code at specific moments in a component's life.
