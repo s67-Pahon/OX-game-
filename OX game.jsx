@@ -89,44 +89,54 @@ function GameBoard() {
   const [board, setBoard] = useState(Array(9).fill(null)); // Remembers the game board.
   const [winner, setWinner] = useState(null); // Remembers the winner.
 
-  // This function draws the empty tic-tac-toe grid on the canvas.
-  const drawGrid = () => {
-    // 1. Get our canvas element using the ref we created.
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    // 2. Get the "2d context", which is the toolset for drawing shapes.
-    const ctx = canvas.getContext('2d');
-    // 3. Erase anything that was previously on the canvas to start fresh.
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 4. Begin drawing the lines.
-    const size = canvas.width;
-    const lineSpacing = size / 3;
-    ctx.beginPath(); // Start a new path.
-    ctx.strokeStyle = 'black'; // Set the line color.
-    ctx.lineWidth = 2; // Set the line thickness.
-    // Draw the two vertical lines.
-    ctx.moveTo(lineSpacing, 0);
-    ctx.lineTo(lineSpacing, size);
-    ctx.moveTo(lineSpacing * 2, 0);
-    ctx.lineTo(lineSpacing * 2, size);
-    // Draw the two horizontal lines.
-    ctx.moveTo(0, lineSpacing);
-    ctx.lineTo(size, lineSpacing);
-    ctx.moveTo(0, lineSpacing * 2);
-    ctx.lineTo(size, lineSpacing * 2);
-    // 5. Actually draw all the lines onto the canvas.
-    ctx.stroke();
-  };
-  
+function animateLine(ctx, x1, y1, x2, y2, duration) {
+  return new Promise((resolve) => {
+    const start = performance.now();
+
+    function frame(now) {
+      const t = Math.min((now - start) / duration, 1); // progress 0 → 1
+      const cx = x1 + (x2 - x1) * t;
+      const cy = y1 + (y2 - y1) * t;
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+
+      if (t < 1) requestAnimationFrame(frame);
+      else resolve();
+    }
+
+    requestAnimationFrame(frame);
+  });
+}
+
+// Just draw two lines like a plus sign
+async function drawCrossAnimated(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = 'black';
+  ctx.lineWidth = 2;
+
+  const size = canvas.width;
+  const mid = size / 3;
+
+  // Vertical line
+  await animateLine(ctx, mid, 0, mid, size, 500);
+  // Horizontal line
+  await animateLine(ctx, 0, mid, size, mid, 500);
+}
   // #3 & #D: EFFECTS
   // The `useEffect` Hook lets us run code at specific moments in a component's life.
   // By passing an empty array `[]` at the end, we tell React to run this code
   // only ONCE, right after the component first appears on the screen.
   // This is perfect for setting up our initial empty grid.
   useEffect(() => {
-    drawGrid();
-  }, []);
+  drawCrossAnimated(canvasRef.current);
+}, []);
+
 
   // #4: This function runs every time the user clicks on the game board.
   const handleCanvasClick = (event) => {
@@ -172,7 +182,7 @@ function GameBoard() {
     setBoard(Array(9).fill(null));
     setWinner(null);
     // We also manually redraw the grid to clear the old X's and O's.
-    drawGrid();
+    drawCrossAnimated(canvasRef.current);
   };
 
   // Figure out what message to show the user based on the current state.
