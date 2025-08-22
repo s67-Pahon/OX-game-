@@ -134,6 +134,8 @@ function GameBoard() {
   const [turn, setTurn] = useState(1);
   const [board, setBoard] = useState(Array(9).fill(null));
   const [winner, setWinner] = useState(null);
+  const [isAnimating, setIsAnimating] = useState(false);   // lock during X/O animation
+  const [isGridDrawing, setIsGridDrawing] = useState(false); // lock while grid draws + extra delay
 
 function animateLine(ctx, x1, y1, x2, y2, duration) {
   return new Promise((resolve) => {
@@ -179,15 +181,16 @@ async function drawCrossAnimated(canvas) {
 
   // #3 & #D: EFFECTS
   useEffect(() => {
-    drawCrossAnimated(canvasRef.current);
+    setIsGridDrawing(true); // lock during initial grid draw
+    drawCrossAnimated(canvasRef.current).then(() => {
+      setTimeout(() => setIsGridDrawing(false),500); // extra 0.5s lock after grid draws
+    });
   }, []);
 
 
   // #4: Handle clicks to draw X/O
-const [isAnimating, setIsAnimating] = useState(false);
-
 const handleCanvasClick = (event) => {
-  if (winner || turn > 9 || isAnimating) return;
+  if (winner || turn > 9 || isAnimating || isGridDrawing) return;
 
   const canvas = canvasRef.current;
   const rect = canvas.getBoundingClientRect();
@@ -237,7 +240,11 @@ const handleCanvasClick = (event) => {
     setTurn(1);
     setBoard(Array(9).fill(null));
     setWinner(null);
-    drawCrossAnimated(canvasRef.current);
+
+    setIsGridDrawing(true); // lock during reset grid draw
+    drawCrossAnimated(canvasRef.current).then(() => {
+      setTimeout(() => setIsGridDrawing(false), 500); // extra 0.5s lock after redraw
+    });
   };
 
   // Status text
@@ -246,6 +253,8 @@ const handleCanvasClick = (event) => {
     status = `Winner: Player ${winner}`;
   } else if (turn > 9) {
     status = "It's a Draw!";
+  } else if (isGridDrawing) {
+    status = "Preparing board...";
   } else {
     status = `Turn ${turn}: Player ${turn % 2 === 1 ? 'X' : 'O'}`;
   }
@@ -266,6 +275,12 @@ const handleCanvasClick = (event) => {
         Reset
       </button>
     </>
+  );
+}
+
+// We "export" our main App component so it can be used by other parts of the project.
+export default App;
+
   );
 }
 
