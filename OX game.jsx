@@ -124,6 +124,67 @@ function calculateWinner(board) {
   return null;
 }
 
+/* NEW: find the exact winning line indices [a,b,c] (row/col/diag) */
+function getWinningLine(board) {
+  const size = 3;
+  // rows
+  for (let r = 0; r < size; r++) {
+    const a = r * size, b = a + 1, c = a + 2;
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) return [a, b, c];
+  }
+  // cols
+  for (let c = 0; c < size; c++) {
+    const a = c, b = c + size, d = c + 2 * size;
+    if (board[a] && board[a] === board[b] && board[a] === board[d]) return [a, b, d];
+  }
+  // diags
+  if (board[0] && board[0] === board[4] && board[0] === board[8]) return [0, 4, 8];
+  if (board[2] && board[2] === board[4] && board[2] === board[6]) return [2, 4, 6];
+  return null;
+}
+
+/* Helpers to animate the winning strike */
+function indexToRowCol(index) {
+  return { row: Math.floor(index / 3), col: index % 3 };
+}
+
+function animateStrike(ctx, x1, y1, x2, y2, duration, color = 'red', width = 7) {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    function frame(now) {
+      const t = Math.min((now - start) / duration, 1);
+      const cx = x1 + (x2 - x1) * t;
+      const cy = y1 + (y2 - y1) * t;
+      // redraw current segment
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(cx, cy);
+      ctx.stroke();
+      if (t < 1) requestAnimationFrame(frame);
+      else {
+        ctx.restore();
+        resolve();
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+function drawWinningStrike(ctx, winningLine, lineSpacing) {
+  // Compute start/end points through the centers of first and last winning cells
+  const { row: r1, col: c1 } = indexToRowCol(winningLine[0]);
+  const { row: r3, col: c3 } = indexToRowCol(winningLine[2]);
+
+  const startX = c1 * lineSpacing + lineSpacing / 2;
+  const startY = r1 * lineSpacing + lineSpacing / 2;
+  const endX   = c3 * lineSpacing + lineSpacing / 2;
+  const endY   = r3 * lineSpacing + lineSpacing / 2;
+
+  return animateStrike(ctx, startX, startY, endX, endY, 450);
+}
 
 // #1: This is the main component for our game. It holds all the logic and visuals.
 function GameBoard() {
@@ -183,7 +244,7 @@ async function drawCrossAnimated(canvas) {
   useEffect(() => {
     setIsGridDrawing(true); // lock during initial grid draw
     drawCrossAnimated(canvasRef.current).then(() => {
-      setTimeout(() => setIsGridDrawing(false),500); // extra 0.5s lock after grid draws
+      setTimeout(() => setIsGridDrawing(false), 500); // extra 0.5s lock after grid draws
     });
   }, []);
 
@@ -225,8 +286,18 @@ const handleCanvasClick = (event) => {
     setBoard(newBoard);
 
     const newWinner = calculateWinner(newBoard);
+
+    // If winner, animate the strike line across the winning cells
     if (newWinner) {
       setWinner(newWinner);
+      const winningLine = getWinningLine(newBoard);
+      if (winningLine) {
+        // draw the strike, then unlock clicks (game is over anyway)
+        drawWinningStrike(ctx, winningLine, lineSpacing).then(() => {
+          setIsAnimating(false);
+        });
+        return; // stop here, no need to proceed
+      }
     }
 
     setTurn(turn + 1);
@@ -275,12 +346,6 @@ const handleCanvasClick = (event) => {
         Reset
       </button>
     </>
-  );
-}
-
-// We "export" our main App component so it can be used by other parts of the project.
-export default App;
-
   );
 }
 
