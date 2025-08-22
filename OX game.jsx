@@ -184,30 +184,39 @@ async function drawCrossAnimated(canvas) {
 
 
   // #4: Handle clicks to draw X/O
-  const handleCanvasClick = (event) => {
-    if (winner || turn > 9) return;
-    
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    const lineSpacing = canvas.width / 3;
-    const col = Math.floor(x / lineSpacing);
-    const row = Math.floor(y / lineSpacing);
-    const index = row * 3 + col;
+const [isAnimating, setIsAnimating] = useState(false);
 
-    if (board[index]) return; 
+const handleCanvasClick = (event) => {
+  if (winner || turn > 9 || isAnimating) return;
 
-    const currentPlayerSymbol = turn % 2 === 1 ? 'X' : 'O';
-    const ctx = canvas.getContext('2d');
+  const canvas = canvasRef.current;
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const lineSpacing = canvas.width / 3;
+  const col = Math.floor(x / lineSpacing);
+  const row = Math.floor(y / lineSpacing);
+  const index = row * 3 + col;
 
-    if (currentPlayerSymbol === 'X') {
+  if (board[index]) return; 
+
+  const currentPlayerSymbol = turn % 2 === 1 ? 'X' : 'O';
+  const ctx = canvas.getContext('2d');
+
+  setIsAnimating(true); //  lock clicks while animating
+
+  let drawPromise;
+  if (currentPlayerSymbol === 'X') {
+    // wrap X drawing into a Promise for consistency
+    drawPromise = new Promise((resolve) => {
       drawX(ctx, row, col, lineSpacing);
-    } else {
-      // O uses the dash-offset animation method
-      drawO(ctx, row, col, lineSpacing);
-    }
+      setTimeout(resolve, 400); // X finishes after ~400ms
+    });
+  } else {
+    drawPromise = drawO(ctx, row, col, lineSpacing);
+  }
 
+  drawPromise.then(() => {
     const newBoard = [...board];
     newBoard[index] = currentPlayerSymbol;
     setBoard(newBoard);
@@ -218,7 +227,10 @@ async function drawCrossAnimated(canvas) {
     }
 
     setTurn(turn + 1);
-  };
+    setIsAnimating(false); //  unlock clicks after animation
+  });
+};
+
   
   // #6: Reset
   const handleReset = () => {
@@ -259,4 +271,3 @@ async function drawCrossAnimated(canvas) {
 
 // We "export" our main App component so it can be used by other parts of the project.
 export default App;
-
