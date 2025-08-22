@@ -18,35 +18,86 @@ function App() {
 // --- Helper Functions ---
 // These are regular JavaScript functions that do specific jobs for our game.
 
-// This function knows how to draw an 'X'.
+// This function knows how to draw an 'X' (animated with two strokes).
 function drawX(ctx, row, col, lineSpacing) {
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 5;
     const x = col * lineSpacing;
     const y = row * lineSpacing;
     const padding = 20;
-    ctx.beginPath();
-    ctx.moveTo(x + padding, y + padding);
-    ctx.lineTo(x + lineSpacing - padding, y + lineSpacing - padding);
-    ctx.moveTo(x + lineSpacing - padding, y + padding);
-    ctx.lineTo(x + padding, y + lineSpacing - padding);
-    ctx.stroke();
+
+    const x1 = x + padding;
+    const y1 = y + padding;
+    const x2 = x + lineSpacing - padding;
+    const y2 = y + lineSpacing - padding;
+    const x3 = x + lineSpacing - padding;
+    const y3 = y + padding;
+    const x4 = x + padding;
+    const y4 = y + lineSpacing - padding;
+
+    function animateLine(ax, ay, bx, by, duration) {
+      return new Promise((resolve) => {
+        const start = performance.now();
+        function frame(now) {
+          const t = Math.min((now - start) / duration, 1);
+          const cx = ax + (bx - ax) * t;
+          const cy = ay + (by - ay) * t;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(cx, cy);
+          ctx.stroke();
+          if (t < 1) requestAnimationFrame(frame);
+          else resolve();
+        }
+        requestAnimationFrame(frame);
+      });
+    }
+
+    // draw the two strokes of X sequentially
+    animateLine(x1, y1, x2, y2, 180).then(() => {
+      return animateLine(x3, y3, x4, y4, 180);
+    });
 }
 
-// This function knows how to draw an 'O'.
+// This function knows how to draw an 'O' (animated via dash-offset method).
 function drawO(ctx, row, col, lineSpacing) {
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 5;
+
     const centerX = col * lineSpacing + lineSpacing / 2;
     const centerY = row * lineSpacing + lineSpacing / 2;
     const radius = lineSpacing / 2 - 20;
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-    ctx.stroke();
+    const duration = 360; // ms
+
+    // Use a single dash equal to circumference and reveal by reducing offset
+    const C = 2 * Math.PI * radius;
+
+    return new Promise((resolve) => {
+      const start = performance.now();
+      ctx.setLineDash([C]);
+      ctx.lineDashOffset = C;
+
+      function frame(now) {
+        const t = Math.min((now - start) / duration, 1); // 0→1
+        ctx.lineDashOffset = C * (1 - t);
+
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+
+        if (t < 1) requestAnimationFrame(frame);
+        else {
+          ctx.setLineDash([]);      // cleanup so future strokes are normal
+          ctx.lineDashOffset = 0;
+          resolve();
+        }
+      }
+
+      requestAnimationFrame(frame);
+    });
 }
 
 // #5: This function checks if a player has won.
-// It no longer uses a hard-coded list of winning lines.
 function calculateWinner(board) {
   const size = 3;
   // Check rows for a win
@@ -77,17 +128,12 @@ function calculateWinner(board) {
 // #1: This is the main component for our game. It holds all the logic and visuals.
 function GameBoard() {
   // #B: REFS
-  // A "ref" gives us a direct link to a specific HTML element that React renders.
-  // Here, we're creating a ref to link to our <canvas> element.
   const canvasRef = useRef(null);
   
   // #2 & #C: STATE
-  // "State" is the memory of our component. We use the `useState` Hook to create
-  // variables that React will remember and can change over time. When a state
-  // variable changes, React automatically re-renders the component to show the update.
-  const [turn, setTurn] = useState(1); // Remembers the current turn.
-  const [board, setBoard] = useState(Array(9).fill(null)); // Remembers the game board.
-  const [winner, setWinner] = useState(null); // Remembers the winner.
+  const [turn, setTurn] = useState(1);
+  const [board, setBoard] = useState(Array(9).fill(null));
+  const [winner, setWinner] = useState(null);
 
 function animateLine(ctx, x1, y1, x2, y2, duration) {
   return new Promise((resolve) => {
@@ -111,7 +157,7 @@ function animateLine(ctx, x1, y1, x2, y2, duration) {
   });
 }
 
-// Just draw two lines like a plus sign
+// Draw the board grid as four lines (two vertical, two horizontal), animated.
 async function drawCrossAnimated(canvas) {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
@@ -123,24 +169,21 @@ async function drawCrossAnimated(canvas) {
   const size = canvas.width;
   const mid = size / 3;
 
-  // Vertical line
-  await animateLine(ctx, mid, 0, mid, size, 500);
-  await animateLine(ctx, mid*2, 0, mid*2, size, 500);
-  // Horizontal line
-  await animateLine(ctx, 0, mid, size, mid, 500);
-  await animateLine(ctx, 0, mid*2, size, mid*2, 500);
+  // Vertical lines
+  await animateLine(ctx, mid, 0, mid, size, 300);
+  await animateLine(ctx, mid * 2, 0, mid * 2, size, 300);
+  // Horizontal lines
+  await animateLine(ctx, 0, mid, size, mid, 300);
+  await animateLine(ctx, 0, mid * 2, size, mid * 2, 300);
 }
+
   // #3 & #D: EFFECTS
-  // The `useEffect` Hook lets us run code at specific moments in a component's life.
-  // By passing an empty array `[]` at the end, we tell React to run this code
-  // only ONCE, right after the component first appears on the screen.
-  // This is perfect for setting up our initial empty grid.
   useEffect(() => {
-  drawCrossAnimated(canvasRef.current);
-}, []);
+    drawCrossAnimated(canvasRef.current);
+  }, []);
 
 
-  // #4: This function runs every time the user clicks on the game board.
+  // #4: Handle clicks to draw X/O
   const handleCanvasClick = (event) => {
     if (winner || turn > 9) return;
     
@@ -157,37 +200,35 @@ async function drawCrossAnimated(canvas) {
 
     const currentPlayerSymbol = turn % 2 === 1 ? 'X' : 'O';
     const ctx = canvas.getContext('2d');
+
     if (currentPlayerSymbol === 'X') {
       drawX(ctx, row, col, lineSpacing);
     } else {
+      // O uses the dash-offset animation method
       drawO(ctx, row, col, lineSpacing);
     }
 
-    // When we update state, we create a new copy of the array.
-    // This is important for telling React that something has changed.
     const newBoard = [...board];
     newBoard[index] = currentPlayerSymbol;
-    setBoard(newBoard); // Update the board state, causing a re-render.
+    setBoard(newBoard);
 
     const newWinner = calculateWinner(newBoard);
     if (newWinner) {
-      setWinner(newWinner); // Update the winner state.
+      setWinner(newWinner);
     }
 
-    setTurn(turn + 1); // Update the turn state.
+    setTurn(turn + 1);
   };
   
-  // #6: This function runs when the user clicks the "Reset" button.
+  // #6: Reset
   const handleReset = () => {
-    // We reset all the state variables back to their original values.
     setTurn(1);
     setBoard(Array(9).fill(null));
     setWinner(null);
-    // We also manually redraw the grid to clear the old X's and O's.
     drawCrossAnimated(canvasRef.current);
   };
 
-  // Figure out what message to show the user based on the current state.
+  // Status text
   let status;
   if (winner) {
     status = `Winner: Player ${winner}`;
@@ -198,10 +239,6 @@ async function drawCrossAnimated(canvas) {
   }
 
   // #7 & #E: JSX
-  // This looks like HTML, but it's actually "JSX". It's a syntax that lets us
-  // write HTML-like code in our JavaScript. React turns this into real HTML
-  // that the browser can understand. We can embed JavaScript variables right
-  // inside it using curly braces {}.
   return (
     <>
       <h1>Ox Game</h1>
@@ -222,3 +259,4 @@ async function drawCrossAnimated(canvas) {
 
 // We "export" our main App component so it can be used by other parts of the project.
 export default App;
+
