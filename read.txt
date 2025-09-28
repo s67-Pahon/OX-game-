@@ -1,1 +1,2 @@
 insert the file into the src folder in vite react folder
+or replace the code in App.jsx
